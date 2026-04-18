@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Evaluation Studio</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:ital,wght@0,300;0,400;0,500;1,300&family=IBM+Plex+Sans:wght@300;400;500;600&display=swap');
+
+:root {
+  --bg: #080b0f;
+  --surface: #0e1318;
+  --surface2: #141b22;
+  --surface3: #1a2330;
+  --border: #1e2d3d;
+  --border2: #243545;
+  --accent: #00d4ff;
+  --accent2: #00ff9d;
+  --warn: #ffb800;
+  --danger: #ff4757;
+  --text: #cdd9e5;
+  --muted: #546a7b;
+  --mono: 'IBM Plex Mono', monospace;
+  --sans: 'IBM Plex Sans', sans-serif;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Scanline effect */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0,0,0,0.03) 2px,
+    rgba(0,0,0,0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* Top bar */
+.topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1.5rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.logo {
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.2em;
+  color: var(--accent);
+  text-transform: uppercase;
+}
+
+.logo span { color: var(--muted); }
+
+.topbar-right {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.session-count {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.session-count strong { color: var(--accent2); }
+
+/* API key bar */
+.apibar {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0.6rem 1.5rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.apibar label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.apibar input {
+  flex: 1;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 11px;
+  padding: 0.4rem 0.75rem;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.apibar input:focus { border-color: var(--accent); }
+
+.api-status {
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 3px 8px;
+  border-radius: 2px;
+  white-space: nowrap;
+}
+
+.api-status.ok { color: var(--accent2); border: 1px solid rgba(0,255,157,0.2); }
+.api-status.missing { color: var(--muted); border: 1px solid var(--border); }
+
+/* Main layout */
+.main {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  height: calc(100vh - 90px);
+}
+
+@media(max-width: 768px) {
+  .main { grid-template-columns: 1fr; height: auto; }
+}
+
+/* Left panel */
+.panel-left {
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-header {
+  padding: 1rem 1.25rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.panel-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.panel-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+/* Form elements */
+.field { display: flex; flex-direction: column; gap: 0.4rem; }
+
+.field-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  color: var(--muted);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.field-label .required { color: var(--accent); }
+
+select, textarea {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 0.875rem;
+  padding: 0.65rem 0.75rem;
+  outline: none;
+  transition: border-color 0.2s;
+  width: 100%;
+}
+
+select:focus, textarea:focus { border-color: var(--accent); }
+select { cursor: pointer; }
+textarea { resize: vertical; line-height: 1.6; }
+textarea::placeholder { color: var(--muted); font-size: 0.8rem; }
+
+.product-context {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-left: 2px solid var(--accent);
+  border-radius: 3px;
+  padding: 0.6rem 0.75rem;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.5;
+  min-height: 36px;
+}
+
+.evaluate-btn {
+  width: 100%;
+  padding: 0.875rem;
+  background: transparent;
+  border: 1px solid var(--accent);
+  border-radius: 3px;
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 12px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  position: relative;
+  overflow: hidden;
+}
+
+.evaluate-btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: var(--accent);
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.evaluate-btn:hover::before { opacity: 0.08; }
+.evaluate-btn:active { transform: scale(0.99); }
+.evaluate-btn:disabled {
+  border-color: var(--border2);
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.evaluate-btn:disabled::before { display: none; }
+
+/* Right panel */
+.panel-right {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.panel-right .panel-body {
+  gap: 0;
+  padding: 0;
+}
+
+/* Empty state */
+.empty-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  text-align: center;
+}
+
+.empty-icon {
+  font-size: 2rem;
+  opacity: 0.2;
+}
+
+.empty-state p {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* Loading state */
+.loading-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.loading-bar {
+  width: 200px;
+  height: 2px;
+  background: var(--border);
+  border-radius: 1px;
+  overflow: hidden;
+}
+
+.loading-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: loading 1.5s ease-in-out infinite;
+}
+
+@keyframes loading {
+  0% { width: 0%; margin-left: 0; }
+  50% { width: 60%; margin-left: 20%; }
+  100% { width: 0%; margin-left: 100%; }
+}
+
+.loading-text {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+/* Results */
+.results-container {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.result-product {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+}
+
+.result-question {
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 0.25rem;
+  line-height: 1.4;
+}
+
+.overall-score {
+  text-align: right;
+  flex-shrink: 0;
+}
+
+.overall-num {
+  font-family: var(--mono);
+  font-size: 2rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.overall-label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+}
+
+/* Dimension cards */
+.dimensions { display: flex; flex-direction: column; gap: 0.75rem; }
+
+.dim-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.875rem;
+  transition: border-color 0.2s;
+}
+
+.dim-card:hover { border-color: var(--border2); }
+
+.dim-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 0.5rem;
+}
+
+.dim-name {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  font-weight: 500;
+}
+
+.dim-rating {
+  font-family: var(--mono);
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 2px 8px;
+  border-radius: 2px;
+}
+
+.dim-finding {
+  font-size: 0.78rem;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-bottom: 0.75rem;
+  font-style: italic;
+}
+
+/* Score slider */
+.slider-row {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.slider-row label {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+input[type=range] {
+  flex: 1;
+  -webkit-appearance: none;
+  height: 2px;
+  background: var(--border2);
+  border-radius: 1px;
+  outline: none;
+  cursor: pointer;
+}
+
+input[type=range]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.3); }
+
+.slider-val {
+  font-family: var(--mono);
+  font-size: 1rem;
+  font-weight: 500;
+  min-width: 1.2rem;
+  text-align: center;
+}
+
+/* Verdict */
+.verdict-bar {
+  padding: 0.75rem;
+  border-radius: 3px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.verdict-text {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.08em;
+}
+
+.verdict-score {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 500;
+}
+
+/* Session panel */
+.session-panel {
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+
+.session-toggle {
+  width: 100%;
+  padding: 0.6rem 1.25rem;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  transition: color 0.2s;
+}
+
+.session-toggle:hover { color: var(--text); }
+
+.session-items {
+  display: none;
+  padding: 0.5rem 1.25rem 1rem;
+  max-height: 180px;
+  overflow-y: auto;
+  gap: 0.4rem;
+  flex-direction: column;
+}
+
+.session-items.open { display: flex; }
+
+.session-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.session-item:hover { border-color: var(--border2); }
+
+.session-item-left {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.session-item-product {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--accent);
+  letter-spacing: 0.1em;
+}
+
+.session-item-q {
+  font-size: 0.75rem;
+  color: var(--muted);
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.session-item-score {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+/* Report button */
+.report-btn {
+  margin: 0 1.25rem 1rem;
+  padding: 0.65rem;
+  background: transparent;
+  border: 1px solid var(--accent2);
+  border-radius: 3px;
+  color: var(--accent2);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: calc(100% - 2.5rem);
+}
+
+.report-btn:hover { background: rgba(0,255,157,0.05); }
+.report-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+/* Error */
+.error-msg {
+  background: rgba(255,71,87,0.08);
+  border: 1px solid rgba(255,71,87,0.25);
+  border-radius: 3px;
+  padding: 0.75rem;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--danger);
+  display: none;
+}
+
+/* Report modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.8);
+  z-index: 1000;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 2rem;
+}
+
+.modal-overlay.open { display: flex; }
+
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border2);
+  border-radius: 4px;
+  width: 100%;
+  max-width: 700px;
+  max-height: 80vh;
+  display: flex;
+  flex-direction: column;
+}
+
+.modal-header {
+  padding: 1rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.modal-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  color: var(--accent);
+}
+
+.modal-close {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 1.2rem;
+  line-height: 1;
+  transition: color 0.15s;
+}
+
+.modal-close:hover { color: var(--text); }
+
+.modal-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1.25rem;
+}
+
+.report-output {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1rem;
+  font-family: var(--mono);
+  font-size: 11px;
+  line-height: 1.7;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.modal-footer {
+  padding: 1rem 1.25rem;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 0.75rem;
+}
+
+.copy-btn {
+  flex: 1;
+  padding: 0.65rem;
+  background: var(--accent);
+  border: none;
+  border-radius: 3px;
+  color: var(--bg);
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.copy-btn:hover { opacity: 0.85; }
+
+.close-modal-btn {
+  padding: 0.65rem 1.25rem;
+  background: transparent;
+  border: 1px solid var(--border2);
+  border-radius: 3px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.close-modal-btn:hover { border-color: var(--text); color: var(--text); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">AI Evaluation <span>//</span> Studio</div>
+  <div class="topbar-right">
+    <div class="session-count">Session: <strong id="sessionCountDisplay">0</strong> evaluations</div>
+  </div>
+</div>
+
+<div class="apibar">
+  <label>ANTHROPIC API KEY</label>
+  <input type="password" id="apiKey" placeholder="sk-ant-..." oninput="updateApiStatus()">
+  <div class="api-status missing" id="apiStatus">NO KEY</div>
+</div>
+
+<div class="main">
+
+  <!-- LEFT PANEL -->
+  <div class="panel-left">
+    <div class="panel-header">
+      <span class="panel-label">Input</span>
+    </div>
+    <div class="panel-body">
+
+      <div class="field">
+        <div class="field-label">AI PRODUCT <span class="required">*</span></div>
+        <select id="productSelect" onchange="updateProductContext()">
+          <option value="">Select AI product...</option>
+          <option value="copilot">Microsoft Copilot</option>
+          <option value="gemini">Google Gemini</option>
+          <option value="chatgpt">ChatGPT (GPT-4o)</option>
+          <option value="perplexity">Perplexity AI</option>
+          <option value="claude">Claude (Anthropic)</option>
+          <option value="llama">Meta Llama</option>
+          <option value="mistral">Mistral AI</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="field" id="otherProductField" style="display:none">
+        <div class="field-label">PRODUCT NAME</div>
+        <input type="text" id="otherProductName" placeholder="e.g. Grok, Command R+..." style="background:var(--surface2);border:1px solid var(--border);border-radius:3px;color:var(--text);font-family:var(--sans);font-size:0.875rem;padding:0.65rem 0.75rem;outline:none;width:100%;">
+      </div>
+
+      <div class="product-context" id="productContext">
+        Select an AI product to see evaluation context.
+      </div>
+
+      <div class="field">
+        <div class="field-label">TEST QUESTION <span class="required">*</span></div>
+        <textarea id="question" rows="3" placeholder="What question did you ask the AI?"></textarea>
+      </div>
+
+      <div class="field">
+        <div class="field-label">AI RESPONSE <span class="required">*</span></div>
+        <textarea id="aiResponse" rows="8" placeholder="Paste the AI's full response here..."></textarea>
+      </div>
+
+      <div class="error-msg" id="errorMsg"></div>
+
+      <button class="evaluate-btn" id="evaluateBtn" onclick="runEvaluation()">
+        → Run Evaluation
+      </button>
+
+    </div>
+  </div>
+
+  <!-- RIGHT PANEL -->
+  <div class="panel-right">
+    <div class="panel-header">
+      <span class="panel-label">Results</span>
+      <span class="panel-label" id="currentProduct" style="color:var(--accent)"></span>
+    </div>
+
+    <div class="panel-body">
+
+      <!-- Empty state -->
+      <div class="empty-state" id="emptyState">
+        <div class="empty-icon">◈</div>
+        <p>Select an AI product, paste a question<br>and response, then run the evaluation.</p>
+        <p style="margin-top:0.5rem;font-size:10px;opacity:0.5">Results appear here in real time</p>
+      </div>
+
+      <!-- Loading state -->
+      <div class="loading-state" id="loadingState" style="display:none">
+        <div class="loading-bar"><div class="loading-bar-fill"></div></div>
+        <div class="loading-text" id="loadingText">Evaluating across 5 dimensions...</div>
+      </div>
+
+      <!-- Results -->
+      <div class="results-container" id="resultsContainer" style="display:none">
+
+        <div class="result-header">
+          <div>
+            <div class="result-product" id="resultProduct"></div>
+            <div class="result-question" id="resultQuestion"></div>
+          </div>
+          <div class="overall-score">
+            <div class="overall-num" id="overallNum">—</div>
+            <div class="overall-label">/ 3.0 OVERALL</div>
+          </div>
+        </div>
+
+        <div class="verdict-bar" id="verdictBar">
+          <div class="verdict-text" id="verdictText">—</div>
+          <div class="verdict-score" id="verdictScore">—</div>
+        </div>
+
+        <div class="dimensions" id="dimensionsEl"></div>
+
+      </div>
+
+    </div>
+
+    <!-- Session panel -->
+    <div class="session-panel">
+      <button class="session-toggle" onclick="toggleSession()">
+        <span>Session history</span>
+        <span id="sessionToggleIcon">▲</span>
+      </button>
+      <div class="session-items" id="sessionItems"></div>
+      <button class="report-btn" id="reportBtn" onclick="generateReport()" disabled>
+        Export full session report →
+      </button>
+    </div>
+
+  </div>
+</div>
+
+<!-- Report modal -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="modal-header">
+      <div class="modal-title">EVALUATION REPORT — EXPORT</div>
+      <button class="modal-close" onclick="closeModal()">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="report-output" id="reportOutput"></div>
+    </div>
+    <div class="modal-footer">
+      <button class="copy-btn" onclick="copyReport()">Copy to clipboard</button>
+      <button class="close-modal-btn" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PRODUCTS = {
+  copilot: {
+    name: 'Microsoft Copilot',
+    context: 'Enterprise AI assistant integrated with Microsoft 365. Evaluate for accuracy, hallucination of business facts, appropriate uncertainty, and whether responses stay relevant to the query.'
+  },
+  gemini: {
+    name: 'Google Gemini',
+    context: 'Google\'s multimodal AI assistant. Evaluate for factual accuracy against verifiable sources, completeness of reasoning, and calibration on contested topics.'
+  },
+  chatgpt: {
+    name: 'ChatGPT (GPT-4o)',
+    context: 'OpenAI\'s general-purpose assistant. Evaluate for accuracy, tendency to hallucinate confident-sounding facts, completeness, and whether uncertainty is appropriately expressed.'
+  },
+  perplexity: {
+    name: 'Perplexity AI',
+    context: 'Search-based AI that cites sources. Evaluate whether output faithfully represents cited sources, source quality and recency, calibration on contested topics, and completeness of perspectives.'
+  },
+  claude: {
+    name: 'Claude (Anthropic)',
+    context: 'Anthropic\'s AI assistant. Evaluate for accuracy, appropriate expression of uncertainty, completeness of reasoning, and relevance to the specific question asked.'
+  },
+  llama: {
+    name: 'Meta Llama',
+    context: 'Meta\'s open-source language model. Evaluate for factual accuracy, hallucination patterns, completeness, and calibration — note that fine-tuned variants may vary significantly.'
+  },
+  mistral: {
+    name: 'Mistral AI',
+    context: 'European AI assistant. Evaluate for accuracy, appropriate uncertainty, completeness, and relevance. Note any differences in handling of EU-specific regulatory or policy topics.'
+  },
+  other: {
+    name: 'Custom AI Product',
+    context: 'Evaluate across all five dimensions with particular attention to the product\'s stated purpose and design goals.'
+  }
+};
+
+const DIMENSIONS = [
+  { id: 'ACC', name: 'Accuracy', desc: 'Are factual claims correct and verifiable?' },
+  { id: 'HAL', name: 'Hallucination', desc: 'Does it invent unsupported details, citations, or statistics?' },
+  { id: 'COM', name: 'Completeness', desc: 'Does it cover the important angles without oversimplifying?' },
+  { id: 'CAL', name: 'Uncertainty Calibration', desc: 'Does confidence level match actual certainty of the topic?' },
+  { id: 'REL', name: 'Relevance', desc: 'Does it actually address what was asked, without drifting?' },
+];
+
+const VERDICTS = [
+  { max: 0.9,  label: 'Reject — fundamental failure',    color: '#ff4757', bg: 'rgba(255,71,87,0.1)' },
+  { max: 1.4,  label: 'High risk — do not rely on this', color: '#ff4757', bg: 'rgba(255,71,87,0.08)' },
+  { max: 1.9,  label: 'Needs significant improvement',   color: '#ffb800', bg: 'rgba(255,184,0,0.08)' },
+  { max: 2.4,  label: 'Usable with caution',             color: '#00d4ff', bg: 'rgba(0,212,255,0.08)' },
+  { max: 3.0,  label: 'Reliable for this query type',    color: '#00ff9d', bg: 'rgba(0,255,157,0.08)' },
+];
+
+let sessionData = [];
+let currentScores = {};
+let sessionOpen = false;
+
+function updateApiStatus() {
+  const key = document.getElementById('apiKey').value.trim();
+  const status = document.getElementById('apiStatus');
+  if (key.startsWith('sk-ant-')) {
+    status.textContent = 'READY';
+    status.className = 'api-status ok';
+  } else {
+    status.textContent = 'NO KEY';
+    status.className = 'api-status missing';
+  }
+}
+
+function updateProductContext() {
+  const val = document.getElementById('productSelect').value;
+  const ctx = document.getElementById('productContext');
+  const otherField = document.getElementById('otherProductField');
+
+  if (!val) {
+    ctx.textContent = 'Select an AI product to see evaluation context.';
+    otherField.style.display = 'none';
+    return;
+  }
+
+  ctx.textContent = PRODUCTS[val]?.context || '';
+  otherField.style.display = val === 'other' ? 'flex' : 'none';
+}
+
+function getProductName() {
+  const val = document.getElementById('productSelect').value;
+  if (val === 'other') {
+    return document.getElementById('otherProductName').value.trim() || 'Custom AI';
+  }
+  return PRODUCTS[val]?.name || '';
+}
+
+function showError(msg) {
+  const el = document.getElementById('errorMsg');
+  el.textContent = msg;
+  el.style.display = 'block';
+}
+
+function hideError() {
+  document.getElementById('errorMsg').style.display = 'none';
+}
+
+async function runEvaluation() {
+  hideError();
+
+  const apiKey = document.getElementById('apiKey').value.trim();
+  const product = document.getElementById('productSelect').value;
+  const question = document.getElementById('question').value.trim();
+  const response = document.getElementById('aiResponse').value.trim();
+
+  if (!apiKey || !apiKey.startsWith('sk-ant-')) {
+    showError('Please enter a valid Anthropic API key.');
+    return;
+  }
+  if (!product) { showError('Please select an AI product.'); return; }
+  if (!question) { showError('Please enter the test question.'); return; }
+  if (!response) { showError('Please paste the AI response.'); return; }
+
+  const productName = getProductName();
+  const productCtx = PRODUCTS[product]?.context || '';
+
+  document.getElementById('evaluateBtn').disabled = true;
+  document.getElementById('emptyState').style.display = 'none';
+  document.getElementById('loadingState').style.display = 'flex';
+  document.getElementById('resultsContainer').style.display = 'none';
+  document.getElementById('currentProduct').textContent = productName;
+
+  const prompt = `You are an expert AI quality evaluator. Evaluate the following AI response across five quality dimensions.
+
+Product being evaluated: ${productName}
+Product context: ${productCtx}
+
+Question asked: ${question}
+
+AI Response: ${response}
+
+Score each dimension 0-3:
+3 = Pass (no issues)
+2 = Minor issue  
+1 = Major issue
+0 = Fail
+
+Respond ONLY with a JSON object, no markdown:
+{
+  "ACC": { "score": 0-3, "finding": "one sentence QA finding" },
+  "HAL": { "score": 0-3, "finding": "one sentence QA finding" },
+  "COM": { "score": 0-3, "finding": "one sentence QA finding" },
+  "CAL": { "score": 0-3, "finding": "one sentence QA finding" },
+  "REL": { "score": 0-3, "finding": "one sentence QA finding" }
+}`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const data = await res.json();
+    if (data.error) { showError('API error: ' + data.error.message); return; }
+
+    let raw = data.content[0].text.trim();
+    raw = raw.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/\s*```$/i, '').trim();
+    const start = raw.indexOf('{');
+    const end = raw.lastIndexOf('}');
+    if (start !== -1 && end !== -1) raw = raw.slice(start, end + 1);
+
+    const parsed = JSON.parse(raw);
+
+    currentScores = {};
+    DIMENSIONS.forEach(d => {
+      currentScores[d.id] = {
+        score: parsed[d.id]?.score ?? 2,
+        finding: parsed[d.id]?.finding ?? ''
+      };
+    });
+
+    renderResults(productName, question, parsed);
+
+    const avg = calcAverage();
+    sessionData.push({
+      product: productName,
+      question: question.slice(0, 80),
+      scores: JSON.parse(JSON.stringify(currentScores)),
+      avg: avg,
+      response: response.slice(0, 300)
+    });
+
+    updateSessionPanel();
+    document.getElementById('reportBtn').disabled = false;
+    document.getElementById('sessionCountDisplay').textContent = sessionData.length;
+
+  } catch(e) {
+    showError('Something went wrong: ' + e.message);
+  } finally {
+    document.getElementById('loadingState').style.display = 'none';
+    document.getElementById('evaluateBtn').disabled = false;
+  }
+}
+
+function calcAverage() {
+  const scores = DIMENSIONS.map(d => currentScores[d.id]?.score ?? 2);
+  return Math.round((scores.reduce((a,b) => a+b, 0) / scores.length) * 10) / 10;
+}
+
+function getScoreColor(s) {
+  s = Number(s);
+  if (s >= 3) return '#00ff9d';
+  if (s >= 2) return '#00d4ff';
+  if (s >= 1) return '#ffb800';
+  return '#ff4757';
+}
+
+function getSliderBg(s) {
+  const pct = (s / 3) * 100;
+  return `linear-gradient(to right, ${getScoreColor(s)} ${pct}%, var(--border2) ${pct}%)`;
+}
+
+function renderResults(productName, question, parsed) {
+  document.getElementById('resultsContainer').style.display = 'flex';
+  document.getElementById('resultProduct').textContent = productName.toUpperCase();
+  document.getElementById('resultQuestion').textContent = question.slice(0, 120) + (question.length > 120 ? '...' : '');
+
+  const el = document.getElementById('dimensionsEl');
+  el.innerHTML = '';
+
+  DIMENSIONS.forEach(d => {
+    const score = currentScores[d.id].score;
+    const finding = currentScores[d.id].finding;
+
+    const card = document.createElement('div');
+    card.className = 'dim-card';
+    card.innerHTML = `
+      <div class="dim-top">
+        <div class="dim-name" style="color:${getScoreColor(score)}">${d.name}</div>
+        <div class="dim-rating" style="color:${getScoreColor(score)};background:${getScoreColor(score)}15;border:1px solid ${getScoreColor(score)}30">
+          ${score === 3 ? 'PASS' : score === 2 ? 'MINOR' : score === 1 ? 'MAJOR' : 'FAIL'}
+        </div>
+      </div>
+      <div class="dim-finding">${finding || d.desc}</div>
+      <div class="slider-row">
+        <label>OVERRIDE</label>
+        <input type="range" min="0" max="3" step="1" value="${score}"
+          id="slider-${d.id}"
+          style="background:${getSliderBg(score)}"
+          oninput="onSlider('${d.id}', this.value)">
+        <span class="slider-val" id="val-${d.id}" style="color:${getScoreColor(score)}">${score}</span>
+      </div>
+    `;
+    el.appendChild(card);
+  });
+
+  updateOverall();
+}
+
+function onSlider(id, val) {
+  val = Number(val);
+  currentScores[id].score = val;
+  document.getElementById('val-' + id).textContent = val;
+  document.getElementById('val-' + id).style.color = getScoreColor(val);
+  document.getElementById('slider-' + id).style.background = getSliderBg(val);
+  updateOverall();
+
+  if (sessionData.length > 0) {
+    sessionData[sessionData.length - 1].scores[id].score = val;
+    sessionData[sessionData.length - 1].avg = calcAverage();
+    updateSessionPanel();
+  }
+}
+
+function updateOverall() {
+  const avg = calcAverage();
+  const verdict = VERDICTS.find(v => avg <= v.max) || VERDICTS[VERDICTS.length - 1];
+
+  document.getElementById('overallNum').textContent = avg.toFixed(1);
+  document.getElementById('overallNum').style.color = verdict.color;
+
+  const vb = document.getElementById('verdictBar');
+  vb.style.background = verdict.bg;
+  vb.style.border = `1px solid ${verdict.color}25`;
+  document.getElementById('verdictText').textContent = verdict.label.toUpperCase();
+  document.getElementById('verdictText').style.color = verdict.color;
+  document.getElementById('verdictScore').textContent = avg.toFixed(1) + '/3.0';
+  document.getElementById('verdictScore').style.color = verdict.color;
+}
+
+function updateSessionPanel() {
+  const el = document.getElementById('sessionItems');
+  el.innerHTML = '';
+  sessionData.forEach((item, i) => {
+    const verdict = VERDICTS.find(v => item.avg <= v.max) || VERDICTS[VERDICTS.length - 1];
+    const div = document.createElement('div');
+    div.className = 'session-item';
+    div.innerHTML = `
+      <div class="session-item-left">
+        <div class="session-item-product">${item.product.toUpperCase()}</div>
+        <div class="session-item-q">${item.question}</div>
+      </div>
+      <div class="session-item-score" style="color:${verdict.color}">${item.avg.toFixed(1)}</div>
+    `;
+    el.appendChild(div);
+  });
+}
+
+function toggleSession() {
+  sessionOpen = !sessionOpen;
+  document.getElementById('sessionItems').className = 'session-items' + (sessionOpen ? ' open' : '');
+  document.getElementById('sessionToggleIcon').textContent = sessionOpen ? '▼' : '▲';
+}
+
+function generateReport() {
+  if (sessionData.length === 0) return;
+
+  const now = new Date().toISOString().split('T')[0];
+  const lines = [
+    `AI EVALUATION REPORT`,
+    `Generated: ${now}`,
+    `Tool: AI Evaluation Studio`,
+    `Evaluator: Samuel Dobrančin — Quality Engineer`,
+    `github.com/samuel-dobrancin-qa`,
+    ``,
+    `═══════════════════════════════════════`,
+    `SUMMARY`,
+    `═══════════════════════════════════════`,
+    `Total evaluations: ${sessionData.length}`,
+    `Products tested: ${[...new Set(sessionData.map(s => s.product))].join(', ')}`,
+    `Average overall score: ${(sessionData.reduce((a,b) => a + b.avg, 0) / sessionData.length).toFixed(2)}/3.0`,
+    ``,
+  ];
+
+  sessionData.forEach((item, i) => {
+    const verdict = VERDICTS.find(v => item.avg <= v.max) || VERDICTS[VERDICTS.length - 1];
+    lines.push(`═══════════════════════════════════════`);
+    lines.push(`EVALUATION ${i + 1} — ${item.product.toUpperCase()}`);
+    lines.push(`═══════════════════════════════════════`);
+    lines.push(`Question: ${item.question}`);
+    lines.push(`Overall: ${item.avg.toFixed(1)}/3.0 — ${verdict.label.toUpperCase()}`);
+    lines.push(``);
+    lines.push(`Scores:`);
+    DIMENSIONS.forEach(d => {
+      const s = item.scores[d.id]?.score ?? '—';
+      const label = s === 3 ? 'PASS' : s === 2 ? 'MINOR' : s === 1 ? 'MAJOR' : 'FAIL';
+      const finding = item.scores[d.id]?.finding || '';
+      lines.push(`  ${d.name.padEnd(24)} ${s}/3  [${label}]`);
+      if (finding) lines.push(`  → ${finding}`);
+    });
+    lines.push(``);
+  });
+
+  lines.push(`═══════════════════════════════════════`);
+  lines.push(`END OF REPORT`);
+
+  document.getElementById('reportOutput').textContent = lines.join('\n');
+  document.getElementById('modalOverlay').classList.add('open');
+}
+
+function closeModal() {
+  document.getElementById('modalOverlay').classList.remove('open');
+}
+
+function copyReport() {
+  const text = document.getElementById('reportOutput').textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    const btn = document.querySelector('.copy-btn');
+    btn.textContent = 'Copied!';
+    setTimeout(() => btn.textContent = 'Copy to clipboard', 2000);
+  });
+}
+
+document.getElementById('modalOverlay').addEventListener('click', function(e) {
+  if (e.target === this) closeModal();
+});
+</script>
+</body>
+</html>
